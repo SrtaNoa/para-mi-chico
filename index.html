@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Para el chico más bonito</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #0d131a;
+      font-family: 'Georgia', serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Contenedor del video de fondo */
+    .escena-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    /* Estilos para el video en pantalla completa */
+    .video-fondo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+    }
+
+    /* Red del Animus sobrepuesta */
+    .animus-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(0deg, transparent 24%, rgba(255, 105, 180, 0.05) 25%, rgba(255, 105, 180, 0.05) 26%, transparent 27%),
+        linear-gradient(90deg, transparent 24%, rgba(255, 105, 180, 0.05) 25%, rgba(255, 105, 180, 0.05) 26%, transparent 27%);
+      background-size: 50px 50px;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* Ubicación exacta del texto en el impacto de la flecha */
+    .stage {
+      position: absolute;
+      top: 58%;
+      right: 12%;
+      transform: translateY(-50%);
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    /* Texto con animación de revelado sincronizada y brillo */
+    .target-text {
+      color: #ffffff;
+      font-size: 2.5rem;
+      font-weight: bold;
+      text-shadow: 0 0 10px #ff69b4, 0 0 20px #ff1493, 0 0 30px #000;
+      text-align: left;
+      max-width: 380px;
+      letter-spacing: 2px;
+      line-height: 1.3;
+      
+      /* Animación: Espera a que la flecha llegue para aparecer */
+      opacity: 0;
+      animation: 
+        fadeInText 1.5s ease-out 1.2s forwards,
+        pulseGlow 2s ease-in-out 2.7s infinite alternate;
+    }
+
+    @keyframes fadeInText {
+      from {
+        opacity: 0;
+        transform: translateX(25px) scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+      }
+    }
+
+    @keyframes pulseGlow {
+      from { text-shadow: 0 0 10px #ff69b4, 0 0 20px #ff1493, 0 0 10px #000; }
+      to { text-shadow: 0 0 20px #ff69b4, 0 0 35px #ff1493, 0 0 50px #ff1493; }
+    }
+
+    /* Indicación interactiva en la parte inferior */
+    .hint-text {
+      position: absolute;
+      bottom: 25px;
+      width: 100%;
+      text-align: center;
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.95rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      z-index: 5;
+      pointer-events: none;
+      animation: blink 2s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.9; }
+    }
+
+    /* Canvas para lluvia de corazones al tocar */
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="escena-container">
+    <video class="video-fondo" autoplay loop muted playsinline>
+      <source src="animacion_asesino.mp4" type="video/mp4">
+    </video>
+  </div>
+
+  <div class="animus-bg"></div>
+
+  <div class="stage">
+    <div class="target-text">
+      Para el chico más bonito
+      Recuerda que eres increíble y que siempre estaré aquí para ti. 💖
+      Tu sonrisa ilumina mi mundo y tu corazón es un tesoro que valoro cada día. Nunca olvides lo especial que eres para mí. 🌟
+      Tu puedes con todo, y siempre te apoyaré en cada paso de tu camino.💕
+    </div>
+  </div>
+
+  <div class="hint-text">✨ Toca la pantalla ✨</div>
+
+  <audio id="bgMusic" loop>
+    <source src="cancion.mp3" type="audio/mpeg">
+  </audio>
+
+  <canvas id="heartCanvas"></canvas>
+
+  <script>
+    // --- Configuración del Audio al primer toque ---
+    const audio = document.getElementById('bgMusic');
+    window.addEventListener('pointerdown', () => {
+      if (audio && audio.paused) {
+        audio.play().catch(err => console.log("Audio esperando interacción"));
+      }
+    }, { once: true });
+
+    // --- Sistema de Partículas (Corazones) ---
+    const canvas = document.getElementById('heartCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let particles = [];
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class HeartParticle {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.size = Math.random() * 20 + 12;
+        this.speedX = (Math.random() - 0.5) * 7;
+        this.speedY = (Math.random() - 0.5) * 7;
+        this.opacity = 1;
+        this.rotation = Math.random() * 360;
+        this.rotationSpeed = (Math.random() - 0.5) * 4;
+      }
+
+      update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.opacity -= 0.02;
+        this.rotation += this.rotationSpeed;
+      }
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate((this.rotation * Math.PI) / 180);
+        ctx.globalAlpha = Math.max(0, this.opacity);
+        ctx.font = `${this.size}px serif`;
+        ctx.fillText('💖', -this.size / 2, this.size / 2);
+        ctx.restore();
+      }
+    }
+
+    function createHeartBurst(x, y) {
+      const count = 14;
+      for (let i = 0; i < count; i++) {
+        particles.push(new HeartParticle(x, y));
+      }
+    }
+
+    window.addEventListener('pointerdown', (e) => {
+      createHeartBurst(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (e.buttons === 1) {
+        createHeartBurst(e.clientX, e.clientY);
+      }
+    });
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        particles[i].draw();
+
+        if (particles[i].opacity <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
